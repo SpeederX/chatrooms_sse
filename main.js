@@ -12,9 +12,10 @@ class HttpRequest{
         if(this.config && 'url' in this.config){
             this.config.method = this.config.method || 'GET';
             let xhttp = new XMLHttpRequest();
-            xhttp.onreadystatechange = complete;
+            xhttp.onreadystatechange = this.complete;
             xhttp.open(this.config.method, this.config.url, true);
-            xhttp.send(JSON.stringify(body));
+            xhttp.setRequestHeader('Content-Type', 'application/json');
+            xhttp.send(JSON.stringify(this.body));
         } else {
             Logger.err('Url for request not defined')
         }
@@ -52,7 +53,7 @@ function sendMessage(){
         if (this.readyState == 4 && this.status == 200) {
             // Typical action to be performed when the document is ready:
             const newElement = document.createElement("li");
-            const eventList = document.getElementById("list");
+            const eventList = document.getElementById("message_container");
             newElement.textContent = 'Message sent';
             eventList.appendChild(newElement);
         }
@@ -90,6 +91,6 @@ sseHandler.onMessage = (event) => {
     eventList.append(newElement);
 };
 
-joinChatButton.addEventListener('click',sseHandler.connect,false);
+joinChatButton.addEventListener('click',() => sseHandler.connect(),false);
 sendMessageButton.addEventListener('click',sendMessage,false);
 

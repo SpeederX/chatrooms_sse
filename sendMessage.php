@@ -1,31 +1,34 @@
 <?php
+declare(strict_types=1);
 
-require_once __DIR__ . '/access.php';
+require_once __DIR__ . '/chatService.php';
+
+header('Content-Type: application/json');
 
 try {
-  $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
-  // set the PDO error mode to exception
-  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-  echo "Connected successfully";
-
-} catch(PDOException $e) {
-  echo "Connection failed: " . $e->getMessage();
+    $conn = new PDO(
+        "mysql:host={$servername};dbname={$dbname};charset=utf8mb4",
+        $username,
+        $password
+    );
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException) {
+    http_response_code(500);
+    echo json_encode(['ok' => false]);
+    exit;
 }
-$request_body = file_get_contents('php://input');
-$request_body = json_decode($request_body);
-var_dump($request_body->message);
+
+$body = json_decode(file_get_contents('php://input') ?: '', true);
+if (!is_array($body) || !isset($body['message'], $body['user_id'])) {
+    http_response_code(400);
+    echo json_encode(['ok' => false]);
+    exit;
+}
+
 try {
-  $timestamp = date("Y-m-d H:i:s");
-  $message = $request_body->message;
-  $user = $request_body->user_id;
-  
-  $stmt = $conn->prepare("INSERT INTO messages(message,user_id,timestamp) VALUES (?,?,?);");
-
-  $stmt->bindValue(1, $message);
-  $stmt->bindValue(2, $user);
-  $stmt->bindValue(3, $timestamp);
-  $stmt->execute();
-} catch(PDOException $e){
-  echo "Insert: " . $e->getMessage();
+    $id = insert_message($conn, (string) $body['message'], (string) $body['user_id']);
+    echo json_encode(['ok' => true, 'id' => $id]);
+} catch (PDOException) {
+    http_response_code(500);
+    echo json_encode(['ok' => false]);
 }
-?>
