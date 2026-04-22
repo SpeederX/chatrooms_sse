@@ -51,11 +51,7 @@ class SSEhandler{
 function sendMessage(){
     let afterRequest = function() {
         if (this.readyState == 4 && this.status == 200) {
-            // Typical action to be performed when the document is ready:
-            const newElement = document.createElement("li");
-            const eventList = document.getElementById("message_container");
-            newElement.textContent = 'Message sent';
-            eventList.appendChild(newElement);
+            alert('Message sent');
         }
     };
     let requestBody = {

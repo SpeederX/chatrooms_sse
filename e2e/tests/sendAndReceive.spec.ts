@@ -23,14 +23,20 @@ test('message sent from one client appears in another (golden path)', async ({ b
     await pageB.locator('#join_chat').click();
     await bSubscribed;
 
+    // Register the dialog handler BEFORE the click that triggers it
+    const sentAlert = pageA.waitForEvent('dialog');
+
     await pageA.locator('#text_value').fill('hello from A');
     await pageA.locator('#send_message').click();
 
+    // A gets a native "Message sent" alert on successful POST
+    const dialog = await sentAlert;
+    expect(dialog.message()).toBe('Message sent');
+    await dialog.accept();
+
+    // B receives the SSE-delivered message
     await expect(pageB.locator('#message_container li'))
         .toContainText('aaa: hello from A');
-
-    await expect(pageA.locator('#message_container li'))
-        .toContainText('Message sent');
 
     await contextA.close();
     await contextB.close();
