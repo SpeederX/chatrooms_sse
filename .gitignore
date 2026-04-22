@@ -1,0 +1,25 @@
+# Environment files — never commit real credentials
+.env
+.env.local
+.env.prod
+.env.*.local
+
+# PHP / Composer
+/vendor/
+composer.phar
+.phpunit.cache/
+.phpunit.result.cache
+
+# Node / Playwright
+/node_modules/
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/playwright/.cache/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,48 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sse_chat
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  playwright:
+    build:
+      context: .
+      dockerfile: docker/playwright/Dockerfile
+    working_dir: /e2e
+    environment:
+      CI: "true"
+    volumes:
+      - ./e2e:/e2e
+      - /e2e/node_modules
+    depends_on:
+      - app
+    profiles:
+      - e2e
+
+volumes:
+  db_data:
