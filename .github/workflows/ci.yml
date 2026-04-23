@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        run: docker compose --env-file .env.example up -d --build --wait db app
+
+      - name: Run PHPUnit (unit + integration)
+        run: docker compose --env-file .env.example exec -T app vendor/bin/phpunit
+
+      - name: Run Playwright
+        run: docker compose --env-file .env.example --profile e2e run --rm playwright npx playwright test
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: docker compose --env-file .env.example down -v

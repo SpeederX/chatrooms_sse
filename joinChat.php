@@ -51,5 +51,6 @@ setcookie('sid', $sid, [
     'httponly' => true,
     'samesite' => 'Strict',
     'path' => '/',
+    'secure' => session_cookie_secure(),
 ]);
 echo json_encode(['ok' => true]);

@@ -7,6 +7,11 @@ const SESSION_TTL_MINUTES = 15;
 const MESSAGE_MAX_LENGTH = 200;
 const COOLDOWN_BASE_SECONDS = 3;
 
+function session_cookie_secure(): bool
+{
+    return getenv('APP_ENV') === 'prod';
+}
+
 function fetch_messages_since(PDO $conn, int $cursor): array
 {
     $stmt = $conn->prepare(
