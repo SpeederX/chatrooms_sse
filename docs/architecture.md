@@ -136,12 +136,13 @@ Semantic Versioning. While we're pre-1.0, the scheme is `0.MINOR.PATCH`:
 
 Tags are applied on `master` at the commit that becomes the release.
 
-| Tag     | Commit    | Release                                               |
-| ------- | --------- | ----------------------------------------------------- |
-| v0.1.0  | 6832acd   | Initial infra, Docker harness, PHPUnit + Playwright   |
-| v0.2.0  | f4fe42c   | Correctness baseline (SSE streaming + main.js bugs)   |
-| v0.3.0  | 16a6390   | Anti-flood: sessions, cooldown, char cap              |
-| v0.3.1  | 456aefc   | Prod readiness + housekeeping: CI, Secure cookie, LF  |
+| Tag     | Release                                                       |
+| ------- | ------------------------------------------------------------- |
+| v0.1.0  | Initial infra, Docker harness, PHPUnit + Playwright           |
+| v0.2.0  | Correctness baseline (SSE streaming + main.js bugs)           |
+| v0.3.0  | Anti-flood: sessions, cooldown, char cap                      |
+| v0.3.1  | Prod readiness + housekeeping: CI, Secure cookie, LF          |
+| v0.4.0  | History backfill + usage stats (SPEC-04, backend-only)        |
 
 Full per-version detail lives in `CHANGELOG.md`.
 

@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-23
+
 ### Added
 - `stats` singleton table (`total_messages`, `total_chars`,
   `total_users`) and `seen_users` table in `db/schema.sql`. Counters are
