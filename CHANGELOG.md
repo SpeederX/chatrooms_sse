@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- CI actions bumped: `actions/checkout@v4 → @v5` and
+  `actions/upload-artifact@v4 → @v5`. v4 is deprecated (Node 20 runtime);
+  v5 runs on Node 24.
+
 ### Fixed
 - `db` healthcheck now verifies the `sessions` table is queryable
   instead of a bare `mysqladmin ping`. The ping succeeded via the local
