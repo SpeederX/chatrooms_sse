@@ -9,10 +9,6 @@ while (ob_get_level() > 0) {
 }
 ob_implicit_flush(true);
 
-header('Content-Type: text/event-stream');
-header('Cache-Control: no-cache');
-header('X-Accel-Buffering: no');
-
 try {
     $conn = new PDO(
         "mysql:host={$servername};dbname={$dbname};charset=utf8mb4",
@@ -25,11 +21,20 @@ try {
     exit;
 }
 
+$sid = $_COOKIE['sid'] ?? '';
+if ($sid === '' || get_session($conn, $sid) === null) {
+    http_response_code(401);
+    exit;
+}
+
+header('Content-Type: text/event-stream');
+header('Cache-Control: no-cache');
+header('X-Accel-Buffering: no');
+
 $cursor = isset($_SERVER['HTTP_LAST_EVENT_ID'])
     ? (int) $_SERVER['HTTP_LAST_EVENT_ID']
     : max_message_id($conn);
 
-// Flush headers eagerly so EventSource.onopen fires before the first real event.
 echo ": connected\n\n";
 
 $deadline = time() + 60;
@@ -39,6 +44,7 @@ while (time() < $deadline) {
         echo "data: {$rs['timestamp']} - {$rs['user_id']}: {$rs['message']}\n\n";
         $cursor = (int) $rs['id'];
     }
+    touch_session($conn, $sid);
     if (connection_aborted()) {
         break;
     }

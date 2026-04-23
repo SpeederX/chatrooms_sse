@@ -15,6 +15,7 @@ class HttpRequest{
             xhttp.onreadystatechange = this.complete;
             xhttp.open(this.config.method, this.config.url, true);
             xhttp.setRequestHeader('Content-Type', 'application/json');
+            xhttp.withCredentials = true;
             xhttp.send(JSON.stringify(this.body));
         } else {
             Logger.err('Url for request not defined')
@@ -32,7 +33,6 @@ class Logger{
             console.err(args);
     }
 }
-/* connection to page with SSE */
 class SSEhandler{
     connection;
     _messageHandler;
@@ -45,48 +45,136 @@ class SSEhandler{
         this.connection.onmessage = this._messageHandler;
         return this.connection;
     }
-
 }
 
-function sendMessage(){
-    let afterRequest = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            alert('Message sent');
-        }
+const MESSAGE_MAX_LENGTH = 200;
+
+Logger.active = true;
+
+const sseHandler = new SSEhandler();
+const joinDialog = document.getElementById('join_dialog');
+const joinForm = document.getElementById('join_form');
+const nicknameInput = document.getElementById('nickname_input');
+const joinError = document.getElementById('join_error');
+const textInput = document.getElementById('text_value');
+const charCounter = document.getElementById('char_counter');
+const sendMessageButton = document.getElementById('send_message');
+const eventList = document.getElementById('message_container');
+
+function appendSystemLi(text){
+    const li = document.createElement('li');
+    li.textContent = `[system] ${text}`;
+    eventList.append(li);
+}
+
+function showJoinError(code){
+    const map = {
+        nickname_taken: 'Nickname already in use',
+        invalid_nickname: 'Use 2–20 chars: letters, digits, "-", "_"',
     };
-    let requestBody = {
-        message: document.getElementById('text_value').value,
-        user_id: document.getElementById('user_id').value,
-    }
-    let requestConfig = { method: "POST" , url: "sendMessage.php" };
-    let req = new HttpRequest(requestConfig,afterRequest,requestBody);
+    joinError.textContent = map[code] || 'Join failed';
+    joinError.hidden = false;
+}
+
+function enableChat(){
+    textInput.disabled = false;
+    updateSendEnabled();
+    sseHandler.connect();
+}
+
+function resetJoinDialog(){
+    textInput.disabled = true;
+    sendMessageButton.disabled = true;
+    joinError.hidden = true;
+    nicknameInput.value = '';
+    if (!joinDialog.open) joinDialog.showModal();
+}
+
+function updateCharCounter(){
+    const len = textInput.value.length;
+    charCounter.textContent = `${len}/${MESSAGE_MAX_LENGTH}`;
+}
+
+function updateSendEnabled(){
+    const len = textInput.value.trim().length;
+    sendMessageButton.disabled = len < 1 || len > MESSAGE_MAX_LENGTH;
+}
+
+function joinChat(nickname){
+    joinError.hidden = true;
+    const req = new HttpRequest(
+        { method: 'POST', url: 'joinChat.php' },
+        function(){
+            if (this.readyState !== 4) return;
+            if (this.status === 200) {
+                joinDialog.close();
+                enableChat();
+                return;
+            }
+            let body = {};
+            try { body = JSON.parse(this.responseText || '{}'); } catch (_) {}
+            showJoinError(body.error);
+        },
+        { nickname }
+    );
     req.send();
 }
 
-function generateID(){
-    return Math.trunc(Math.random()*100)+'-'+Math.trunc(Math.random()*100)+'-'+Math.trunc(Math.random()*100)
+function sendMessage(){
+    const req = new HttpRequest(
+        { method: 'POST', url: 'sendMessage.php' },
+        function(){
+            if (this.readyState !== 4) return;
+            let body = {};
+            try { body = JSON.parse(this.responseText || '{}'); } catch (_) {}
+            if (this.status === 200) {
+                textInput.value = '';
+                updateCharCounter();
+                updateSendEnabled();
+                return;
+            }
+            if (this.status === 401) {
+                resetJoinDialog();
+                return;
+            }
+            if (this.status === 429) {
+                appendSystemLi(`Wait ${body.wait_seconds} seconds before sending another message`);
+                return;
+            }
+            if (this.status === 400) {
+                const errMap = {
+                    empty: 'Message is empty',
+                    too_long: `Message exceeds ${MESSAGE_MAX_LENGTH} characters`,
+                    invalid_chars: 'Message contains invalid characters',
+                };
+                appendSystemLi(errMap[body.error] || 'Message rejected');
+                return;
+            }
+            appendSystemLi('Unexpected error');
+        },
+        { message: textInput.value }
+    );
+    req.send();
 }
 
-// enable logger, to debug
-Logger.active = true;
-
-let sseHandler = new SSEhandler(),
-    sseConnection;
-const userIdInput = document.getElementById('user_id'),
-    joinChatButton = document.getElementById('join_chat'),
-    sendMessageButton = document.getElementById('send_message'),
-    eventList = document.getElementById("message_container");
-
-userIdInput.value = generateID()
-
 sseHandler.onMessage = (event) => {
-    Logger.log('New message from backend',event);
-    const newElement = document.createElement("li");
-
-    newElement.textContent = `${event.data}`;
-    eventList.append(newElement);
+    Logger.log('New message from backend', event);
+    const li = document.createElement('li');
+    li.textContent = `${event.data}`;
+    eventList.append(li);
 };
 
-joinChatButton.addEventListener('click',() => sseHandler.connect(),false);
-sendMessageButton.addEventListener('click',sendMessage,false);
+joinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nickname = nicknameInput.value;
+    joinChat(nickname);
+});
 
+textInput.addEventListener('input', () => {
+    updateCharCounter();
+    updateSendEnabled();
+});
+
+sendMessageButton.addEventListener('click', sendMessage, false);
+
+joinDialog.showModal();
