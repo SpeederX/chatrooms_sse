@@ -1,49 +1,47 @@
 # PHP SSE Chat
 
-A minimal real-time chat demo built with **PHP + Server-Sent Events** on top of a **MySQL** backend. Two pages, a handful of scripts, no framework — meant as a small experimentation playground for SSE-based messaging.
+Minimal real-time chat built on **PHP 8.3 + Server-Sent Events** and
+**MySQL 8**. Anonymous sessions with a user-chosen nickname, 3 s
+per-user cooldown with escalating penalty, 200-char message cap,
+containerized dev stack, and a layered test harness (PHPUnit +
+Playwright).
 
-## How it works
+Current version: see `CHANGELOG.md` and `git tag -l`.
 
-1. The browser opens `index.php` and is assigned a random `NN-NN-NN` user id.
-2. Clicking **Connect SSE** opens an `EventSource` against `chatPoll.php`, which streams chat messages from the database as `text/event-stream`.
-3. Clicking **Send Message** POSTs `{ message, user_id }` as JSON to `sendMessage.php`, which inserts a row into the `messages` table.
-4. The SSE stream delivers messages back to the client, which appends them to the message list.
-
-## File layout
-
-| File | Role |
-| --- | --- |
-| `index.php` | Chat UI — user id field, message input, send/connect buttons, message list |
-| `main.js` | Client-side logic: `HttpRequest` (XHR wrapper), `Logger`, `SSEhandler` (EventSource wrapper), `sendMessage()`, `generateID()` |
-| `sendMessage.php` | POST endpoint — inserts `{ message, user_id, timestamp }` into `messages` via PDO |
-| `chatPoll.php` | SSE endpoint — reads from `messages` and emits rows as `data:` events |
-| `access.php` | Shared DB credentials (`$servername`, `$username`, `$password`, `$dbname`) |
-| `materialIcons.css` + `.woff2` | Locally bundled Material Icons font |
-| `index.html` | Unrelated landing page — leftover scaffolding, not part of the chat |
-
-## Database
-
-Single table:
-
-```sql
-CREATE TABLE messages (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  message TEXT,
-  user_id VARCHAR(32),
-  timestamp DATETIME
-);
-```
-
-## Requirements
-
-- PHP with PDO + `pdo_mysql`
-- A MySQL/MariaDB instance reachable from the PHP host
-- Any static web server capable of executing PHP (Apache, Nginx + PHP-FPM, `php -S`, etc.)
-
-## Running locally
+## Quickstart
 
 ```bash
-php -S localhost:8000
+git clone <repo>
+cd sse_chat
+cp .env.example .env.local
+
+docker compose --env-file .env.local up -d --build --wait db app
 ```
 
-Then open `http://localhost:8000/index.php`, click **Connect SSE**, and send messages from a second tab to see them stream in.
+App is served at `http://localhost:8080/index.php`.
+
+## Tests
+
+```bash
+# PHPUnit — unit + integration
+docker compose --env-file .env.local exec -T app vendor/bin/phpunit
+
+# Playwright — E2E
+docker compose --env-file .env.local --profile e2e run --rm playwright npx playwright test
+```
+
+## Documentation
+
+| Document                        | What it covers                                              |
+| ------------------------------- | ----------------------------------------------------------- |
+| `docs/architecture.md`          | Stack, methodology (TDD, spec-driven), testing layers, folder layout, branch model, versioning |
+| `docs/deployment.md`            | Prod env vars, schema application, reverse-proxy notes, release shape |
+| `docs/open-points.md`           | Concise roadmap: active items, upcoming specs, parked and dropped items |
+| `docs/specs/spec-NN.md`         | Per-spec design: objectives, out-of-scope, deliverables, acceptance criteria |
+| `CHANGELOG.md`                  | Per-release entries (Keep a Changelog format)               |
+
+## Contributing
+
+Work lands on `dev`. Release cycles merge `dev` into `master` and tag
+the new version. Specs are written first, signed off, then implemented
+via the Prove-It TDD loop. Full detail in `docs/architecture.md`.
