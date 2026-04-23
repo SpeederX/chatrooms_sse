@@ -6,6 +6,8 @@ require_once __DIR__ . '/access.php';
 const SESSION_TTL_MINUTES = 15;
 const MESSAGE_MAX_LENGTH = 200;
 const COOLDOWN_BASE_SECONDS = 3;
+const HISTORY_SIZE = 50;
+const ACTIVE_USER_WINDOW_MINUTES = 12;
 
 function session_cookie_secure(): bool
 {
@@ -23,17 +25,53 @@ function fetch_messages_since(PDO $conn, int $cursor): array
 
 function insert_message(PDO $conn, string $message, string $user_id): int
 {
-    $stmt = $conn->prepare(
-        "INSERT INTO messages (message, user_id, timestamp) VALUES (?, ?, ?)"
-    );
-    $stmt->execute([$message, $user_id, date('Y-m-d H:i:s')]);
-    return (int) $conn->lastInsertId();
+    $conn->beginTransaction();
+    try {
+        $stmt = $conn->prepare(
+            "INSERT INTO messages (message, user_id, timestamp) VALUES (?, ?, ?)"
+        );
+        $stmt->execute([$message, $user_id, date('Y-m-d H:i:s')]);
+        $id = (int) $conn->lastInsertId();
+
+        $length = mb_strlen($message, 'UTF-8');
+        $update = $conn->prepare(
+            "UPDATE stats
+             SET total_messages = total_messages + 1,
+                 total_chars = total_chars + ?
+             WHERE id = 1"
+        );
+        $update->execute([$length]);
+
+        $conn->commit();
+        return $id;
+    } catch (\Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function max_message_id(PDO $conn): int
 {
     $stmt = $conn->query("SELECT COALESCE(MAX(id), 0) FROM messages");
     return (int) $stmt->fetchColumn();
+}
+
+function fetch_last_n_messages(PDO $conn, int $n): array
+{
+    $stmt = $conn->prepare(
+        "SELECT id, user_id, timestamp, message FROM messages
+         ORDER BY id DESC LIMIT ?"
+    );
+    $stmt->bindValue(1, $n, PDO::PARAM_INT);
+    $stmt->execute();
+    return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function cleanup_message_history(PDO $conn): int
+{
+    return (int) $conn->exec("DELETE FROM messages");
 }
 
 function validate_nickname(string $nickname): ?string
@@ -67,12 +105,32 @@ function create_session(PDO $conn, string $nickname): string
 {
     $sid = bin2hex(random_bytes(32));
     $now = date('Y-m-d H:i:s');
-    $stmt = $conn->prepare(
-        "INSERT INTO sessions (id, nickname, created_at, last_seen_at)
-         VALUES (?, ?, ?, ?)"
-    );
-    $stmt->execute([$sid, $nickname, $now, $now]);
-    return $sid;
+
+    $conn->beginTransaction();
+    try {
+        $stmt = $conn->prepare(
+            "INSERT INTO sessions (id, nickname, created_at, last_seen_at)
+             VALUES (?, ?, ?, ?)"
+        );
+        $stmt->execute([$sid, $nickname, $now, $now]);
+
+        $seen = $conn->prepare(
+            "INSERT IGNORE INTO seen_users (nickname, first_seen_at) VALUES (?, ?)"
+        );
+        $seen->execute([$nickname, $now]);
+
+        if ($seen->rowCount() > 0) {
+            $conn->exec("UPDATE stats SET total_users = total_users + 1 WHERE id = 1");
+        }
+
+        $conn->commit();
+        return $sid;
+    } catch (\Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function get_session(PDO $conn, string $sid): ?array
@@ -100,6 +158,24 @@ function cleanup_expired_sessions(PDO $conn): int
     );
     $stmt->execute([SESSION_TTL_MINUTES]);
     return $stmt->rowCount();
+}
+
+function get_stats(PDO $conn): array
+{
+    $stmt = $conn->query(
+        "SELECT total_messages, total_chars, total_users FROM stats WHERE id = 1"
+    );
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? ['total_messages' => 0, 'total_chars' => 0, 'total_users' => 0] : $row;
+}
+
+function active_users_now(PDO $conn): int
+{
+    $stmt = $conn->prepare(
+        "SELECT COUNT(*) FROM sessions WHERE last_seen_at >= NOW() - INTERVAL ? MINUTE"
+    );
+    $stmt->execute([ACTIVE_USER_WINDOW_MINUTES]);
+    return (int) $stmt->fetchColumn();
 }
 
 function advance_cooldown(PDO $conn, string $sid): array

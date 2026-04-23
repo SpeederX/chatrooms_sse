@@ -63,12 +63,16 @@ test('send button disabled when empty, enabled when non-empty', async ({ page })
 
 test('rapid second send triggers cooldown system message', async ({ page }) => {
     await join(page, `cd_${suffix}`);
-    await page.locator('#text_value').fill('first');
+    const first = `first_${suffix}`;
+    await page.locator('#text_value').fill(first);
     await page.locator('#send_message').click();
-    // Wait for the server echo to come back via SSE so we know the send was accepted
-    await expect(page.locator('#message_container li')).toContainText('first');
+    // Wait for the server echo via SSE — filter by our unique text so the
+    // assertion is robust against any backfill that preceded the send.
+    await expect(
+        page.locator('#message_container li').filter({ hasText: first }),
+    ).toHaveCount(1);
 
-    await page.locator('#text_value').fill('spam');
+    await page.locator('#text_value').fill(`spam_${suffix}`);
     await page.locator('#send_message').click();
 
     await expect(page.locator('#message_container li').filter({ hasText: '[system]' }))

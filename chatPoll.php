@@ -31,11 +31,20 @@ header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('X-Accel-Buffering: no');
 
-$cursor = isset($_SERVER['HTTP_LAST_EVENT_ID'])
-    ? (int) $_SERVER['HTTP_LAST_EVENT_ID']
-    : max_message_id($conn);
+$lastEventId = $_SERVER['HTTP_LAST_EVENT_ID'] ?? null;
 
 echo ": connected\n\n";
+
+if ($lastEventId !== null) {
+    $cursor = (int) $lastEventId;
+} else {
+    $history = fetch_last_n_messages($conn, HISTORY_SIZE);
+    foreach ($history as $rs) {
+        echo "id: {$rs['id']}\n";
+        echo "data: {$rs['timestamp']} - {$rs['user_id']}: {$rs['message']}\n\n";
+    }
+    $cursor = !empty($history) ? (int) end($history)['id'] : 0;
+}
 
 $deadline = time() + 60;
 while (time() < $deadline) {

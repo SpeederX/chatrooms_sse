@@ -6,10 +6,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `stats` singleton table (`total_messages`, `total_chars`,
+  `total_users`) and `seen_users` table in `db/schema.sql`. Counters are
+  monotonic and survive `cleanup_message_history`.
+- `HISTORY_SIZE = 50` and `ACTIVE_USER_WINDOW_MINUTES = 12` constants
+  in `chatService.php`.
+- New service-layer functions `fetch_last_n_messages`,
+  `cleanup_message_history`, `get_stats`, `active_users_now`.
+- `tests/integration/HistoryTest.php` (5 tests) and
+  `tests/integration/StatsTest.php` (8 tests).
+- `e2e/tests/historyBackfill.spec.ts` — new joiner receives the last N
+  messages seeded from three independent sessions.
+
 ### Changed
+- `chatPoll.php` first-connect now emits the last N messages as SSE
+  backfill (ASC by id) before entering the live loop. Supersedes
+  SPEC-02's "empty on first connect" decision. Reconnect with
+  `Last-Event-ID` is unchanged — no backfill, no duplicates.
+- `insert_message` is transactional: the message INSERT and the stats
+  counter increments commit together or not at all.
+- `create_session` is transactional: INSERT sessions, `INSERT IGNORE`
+  seen_users, and — only if the IGNORE actually inserted a new row —
+  increment `stats.total_users` so a nickname ever seen counts exactly
+  once.
+- `e2e/tests/sendAndReceive.spec.ts` and `e2e/tests/antiFlood.spec.ts`
+  use suffix-tagged text with a `filter({ hasText }) + toHaveCount(1)`
+  pattern, so assertions are robust against the backfill populating
+  `#message_container` before the live send.
 - CI actions bumped: `actions/checkout@v4 → @v5` and
-  `actions/upload-artifact@v4 → @v5`. v4 is deprecated (Node 20 runtime);
-  v5 runs on Node 24.
+  `actions/upload-artifact@v4 → @v5`. v4 is deprecated (Node 20
+  runtime); v5 runs on Node 24.
+- Documentation restructure: Italian `DEPLOYMENT.md` and
+  `OPEN-POINTS.md` translated to English and moved under `docs/`. Specs
+  moved from root (`SPEC*.md`) to `docs/specs/spec-NN.md`. New
+  `docs/architecture.md` captures stack, methodology, testing layers,
+  folder layout, branch model, and versioning. Branch model switched
+  to lightweight Gitflow (`master` tag-only, `dev` integration).
 
 ### Fixed
 - `db` healthcheck now verifies the `sessions` table is queryable
@@ -19,14 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existed; integration tests then errored on `TRUNCATE TABLE sessions`
   (PHPUnit exit code 2 in CI). The schema-aware check makes a clean-
   slate start deterministic both locally and in GitHub Actions.
-
-### Changed
-- Documentation restructure: Italian `DEPLOYMENT.md` and `OPEN-POINTS.md`
-  translated to English and moved under `docs/`. Specs moved from root
-  (`SPEC*.md`) to `docs/specs/spec-NN.md`. New `docs/architecture.md`
-  captures stack, methodology, testing layers, folder layout, branch
-  model, and versioning. Branch model switched to lightweight Gitflow
-  (`master` tag-only, `dev` integration).
 
 ## [0.3.1] - 2026-04-23
 

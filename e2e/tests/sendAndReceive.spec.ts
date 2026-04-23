@@ -22,11 +22,13 @@ test('message sent from one client appears in another (golden path)', async ({ b
     await join(pageA, `alice_${suffix}`);
     await join(pageB, `bob_${suffix}`);
 
-    await pageA.locator('#text_value').fill('hello from A');
+    const msg = `hello from A ${suffix}`;
+    await pageA.locator('#text_value').fill(msg);
     await pageA.locator('#send_message').click();
 
-    await expect(pageB.locator('#message_container li'))
-        .toContainText(`alice_${suffix}: hello from A`);
+    await expect(
+        pageB.locator('#message_container li').filter({ hasText: msg }),
+    ).toHaveCount(1);
 
     await contextA.close();
     await contextB.close();
