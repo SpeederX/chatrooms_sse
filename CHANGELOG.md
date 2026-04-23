@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `db` healthcheck now verifies the `sessions` table is queryable
+  instead of a bare `mysqladmin ping`. The ping succeeded via the local
+  socket while `/docker-entrypoint-initdb.d/schema.sql` was still
+  running on first boot, causing `--wait` to unblock before the schema
+  existed; integration tests then errored on `TRUNCATE TABLE sessions`
+  (PHPUnit exit code 2 in CI). The schema-aware check makes a clean-
+  slate start deterministic both locally and in GitHub Actions.
+
 ### Changed
 - Documentation restructure: Italian `DEPLOYMENT.md` and `OPEN-POINTS.md`
   translated to English and moved under `docs/`. Specs moved from root
