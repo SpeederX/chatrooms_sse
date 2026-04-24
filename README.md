@@ -19,6 +19,8 @@ docker compose --env-file .env.local up -d --build --wait db app
 ```
 
 App is served at `http://localhost:8080/index.php`.
+Admin panel is served at `http://localhost:8080/adminLogin.php` (password
+set via `ADMIN_PASSWORD_HASH` — see `.env.example`).
 
 ## Tests
 

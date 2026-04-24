@@ -47,7 +47,9 @@ class SSEhandler{
     }
 }
 
-const MESSAGE_MAX_LENGTH = 200;
+const MESSAGE_MAX_LENGTH = window.SSE_CONFIG?.messageMaxLength ?? 200;
+const NICKNAME_MIN_LENGTH = window.SSE_CONFIG?.nicknameMinLength ?? 2;
+const NICKNAME_MAX_LENGTH = window.SSE_CONFIG?.nicknameMaxLength ?? 20;
 
 Logger.active = true;
 
@@ -70,7 +72,7 @@ function appendSystemLi(text){
 function showJoinError(code){
     const map = {
         nickname_taken: 'Nickname already in use',
-        invalid_nickname: 'Use 2–20 chars: letters, digits, "-", "_"',
+        invalid_nickname: `Use ${NICKNAME_MIN_LENGTH}–${NICKNAME_MAX_LENGTH} chars: letters, digits, "-", "_"`,
     };
     joinError.textContent = map[code] || 'Join failed';
     joinError.hidden = false;

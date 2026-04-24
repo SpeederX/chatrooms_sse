@@ -38,7 +38,8 @@ echo ": connected\n\n";
 if ($lastEventId !== null) {
     $cursor = (int) $lastEventId;
 } else {
-    $history = fetch_last_n_messages($conn, HISTORY_SIZE);
+    $historySize = (int) get_config($conn, 'history_size', 50);
+    $history = fetch_last_n_messages($conn, $historySize);
     foreach ($history as $rs) {
         echo "id: {$rs['id']}\n";
         echo "data: {$rs['timestamp']} - {$rs['user_id']}: {$rs['message']}\n\n";

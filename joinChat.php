@@ -26,7 +26,9 @@ if (!is_array($body) || !isset($body['nickname']) || !is_string($body['nickname'
 }
 
 $nickname = $body['nickname'];
-$err = validate_nickname($nickname);
+$nickMin = (int) get_config($conn, 'nickname_min_length', 2);
+$nickMax = (int) get_config($conn, 'nickname_max_length', 20);
+$err = validate_nickname($nickname, $nickMin, $nickMax);
 if ($err !== null) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $err]);
@@ -35,7 +37,8 @@ if ($err !== null) {
 
 try {
     cleanup_expired_sessions($conn);
-    $sid = create_session($conn, $nickname);
+    $existingSid = (string) ($_COOKIE['sid'] ?? '');
+    $sid = rejoin_or_create_session($conn, $nickname, $existingSid);
 } catch (PDOException $e) {
     if (($e->errorInfo[1] ?? 0) === 1062) {
         http_response_code(409);

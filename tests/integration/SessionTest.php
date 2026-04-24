@@ -161,6 +161,69 @@ final class SessionTest extends TestCase
         $this->assertSame(3, (int) $row['cooldown_attempts']);
     }
 
+    public function testRejoinWithSameNicknameViaCookieReusesSession(): void
+    {
+        $sid = create_session($this->conn, 'alice');
+        $this->conn->exec(
+            "UPDATE sessions SET last_seen_at = NOW() - INTERVAL 30 SECOND WHERE id = "
+            . $this->conn->quote($sid)
+        );
+
+        $returned = rejoin_or_create_session($this->conn, 'alice', $sid);
+        $this->assertSame($sid, $returned);
+
+        $count = (int) $this->conn
+            ->query("SELECT COUNT(*) FROM sessions WHERE nickname = 'alice'")
+            ->fetchColumn();
+        $this->assertSame(1, $count);
+
+        $elapsed = (int) $this->conn
+            ->query("SELECT TIMESTAMPDIFF(SECOND, last_seen_at, NOW()) FROM sessions WHERE id = "
+                . $this->conn->quote($sid))
+            ->fetchColumn();
+        $this->assertLessThan(5, $elapsed);
+    }
+
+    public function testRejoinWithDifferentNicknameDropsOldSession(): void
+    {
+        $aliceSid = create_session($this->conn, 'alice');
+
+        $bobSid = rejoin_or_create_session($this->conn, 'bob', $aliceSid);
+        $this->assertNotSame($aliceSid, $bobSid);
+
+        $aliceCount = (int) $this->conn
+            ->query("SELECT COUNT(*) FROM sessions WHERE nickname = 'alice'")
+            ->fetchColumn();
+        $this->assertSame(0, $aliceCount, 'old alice session should be dropped');
+
+        $bobCount = (int) $this->conn
+            ->query("SELECT COUNT(*) FROM sessions WHERE nickname = 'bob'")
+            ->fetchColumn();
+        $this->assertSame(1, $bobCount);
+    }
+
+    public function testRejoinWithoutCookieCreatesFreshSession(): void
+    {
+        $sid = rejoin_or_create_session($this->conn, 'alice', '');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $sid);
+    }
+
+    public function testRejoinWithStaleCookieCreatesFreshSession(): void
+    {
+        $staleSid = str_repeat('0', 64);
+        $sid = rejoin_or_create_session($this->conn, 'alice', $staleSid);
+        $this->assertNotSame($staleSid, $sid);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $sid);
+    }
+
+    public function testRejoinStillRejectsNicknameHeldByAnotherSession(): void
+    {
+        create_session($this->conn, 'alice');
+
+        $this->expectException(PDOException::class);
+        rejoin_or_create_session($this->conn, 'alice', '');
+    }
+
     public function testAdvanceCooldownResetsAfterExpiry(): void
     {
         $sid = create_session($this->conn, 'alice');

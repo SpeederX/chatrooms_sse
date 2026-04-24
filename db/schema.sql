@@ -30,3 +30,20 @@ CREATE TABLE IF NOT EXISTS seen_users (
     nickname VARCHAR(32) PRIMARY KEY,
     first_seen_at DATETIME NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS config (
+    `key` VARCHAR(64) PRIMARY KEY,
+    value VARCHAR(255) NOT NULL,
+    updated_at DATETIME NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO config (`key`, value) VALUES
+    ('message_max_length',          '200'),
+    ('cooldown_base_seconds',       '3'),
+    ('history_size',                '50'),
+    ('nickname_min_length',         '2'),
+    ('nickname_max_length',         '20'),
+    ('session_ttl_minutes',         '15'),
+    ('active_user_window_minutes',  '12');

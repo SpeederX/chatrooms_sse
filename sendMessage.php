@@ -33,7 +33,8 @@ if (!is_array($body) || !isset($body['message']) || !is_string($body['message'])
     exit;
 }
 
-$validation = validate_message($body['message']);
+$msgMax = (int) get_config($conn, 'message_max_length', 200);
+$validation = validate_message($body['message'], $msgMax);
 if (!$validation['ok']) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $validation['error']]);

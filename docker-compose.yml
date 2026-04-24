@@ -11,6 +11,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
       APP_ENV: ${APP_ENV:-local}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
     volumes:
       - .:/var/www/html
       - /var/www/html/vendor
