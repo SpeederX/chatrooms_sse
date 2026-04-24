@@ -143,6 +143,7 @@ Tags are applied on `master` at the commit that becomes the release.
 | v0.3.0  | Anti-flood: sessions, cooldown, char cap                      |
 | v0.3.1  | Prod readiness + housekeeping: CI, Secure cookie, LF          |
 | v0.4.0  | History backfill + usage stats (SPEC-04, backend-only)        |
+| v0.5.0  | Admin panel: auth, runtime config, stats, history cleanup (SPEC-05) |
 
 Full per-version detail lives in `CHANGELOG.md`.
 

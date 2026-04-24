@@ -6,6 +6,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-24
+
+### Added
+- Admin panel — the first authenticated surface of the project.
+  Single admin, password hashed with bcrypt in the `ADMIN_PASSWORD_HASH`
+  env var, PHP-session gated pages, `HttpOnly` + `SameSite=Strict`
+  cookie (`Secure` in prod), 1h idle TTL, CSRF token on every POST.
+- Runtime config store: new `config` table in `db/schema.sql` with
+  seven keys (`message_max_length`, `cooldown_base_seconds`,
+  `history_size`, `nickname_min_length`, `nickname_max_length`,
+  `session_ttl_minutes`, `active_user_window_minutes`). Seeded via
+  `INSERT IGNORE` so admin-edited values survive schema re-apply.
+- Service-layer helpers in `chatService.php`: `get_config`,
+  `set_config`, `set_all_config`, `get_all_config`, `config_bounds`,
+  `check_config_invariants`, plus `start_admin_session`,
+  `verify_admin_password`, `authenticate_admin_request`,
+  `admin_is_authenticated`, `require_admin_auth`, `admin_csrf_token`,
+  `verify_admin_csrf`, `admin_logout`.
+- New endpoints: `adminLogin.php`, `authenticateAdmin.php`,
+  `adminPanel.php`, `adminUpdateConfig.php`, `adminCleanupHistory.php`,
+  `adminLogout.php`; minimal styling in `assets/adminStyles.css`.
+- Tests: `tests/unit/AdminAuthTest.php` (16 tests),
+  `tests/unit/ConfigBoundsTest.php` (7 tests),
+  `tests/integration/RuntimeConfigTest.php` (14 tests),
+  `e2e/tests/adminPanel.spec.ts` (6 scenarios: login fail, login
+  success, history cleanup, cooldown=0 back-to-back sends, bounds
+  rejection, logout).
+- `ADMIN_PASSWORD_HASH` in `.env.example` / `.env.local`, passed through
+  `docker-compose.yml` to the `app` service.
+
+### Changed
+- `validate_nickname` and `validate_message` signatures widened to
+  accept min/max length as explicit parameters; callers read those from
+  the config table. `validate_nickname` now separates the length check
+  (`mb_strlen`) from the constant character-class regex, so the class
+  never goes through string interpolation.
+- `get_session`, `cleanup_expired_sessions`, `active_users_now`,
+  `advance_cooldown`, and the `chatPoll.php` backfill branch read their
+  thresholds from `config` instead of the old `const`s.
+- `index.php` became a PHP passthrough: renders `minlength`,
+  `maxlength`, `pattern`, and the char-counter label from live config,
+  and emits a `window.SSE_CONFIG` inline script that `main.js` consumes
+  at init.
+- `e2e/playwright.config.ts` pins `workers: 1`. The SPEC-05 history
+  cleanup test deletes shared DB state — parallel workers would race
+  with other specs' seeding.
+- The five hard-coded constants in `chatService.php`
+  (`SESSION_TTL_MINUTES`, `MESSAGE_MAX_LENGTH`, `COOLDOWN_BASE_SECONDS`,
+  `HISTORY_SIZE`, `ACTIVE_USER_WINDOW_MINUTES`) are gone. Same values,
+  now stored in `config`, tunable via the panel.
+
+### Fixed
+- Rejoining with an existing `sid` cookie now reuses the caller's own
+  session instead of hitting `UNIQUE (nickname)` against themselves.
+  Closing a tab and reopening (or refreshing after a successful join)
+  no longer forces the user to wait for the TTL to drain. `joinChat.php`
+  routes through a new `rejoin_or_create_session` helper:
+  - matching `sid` + nickname → refresh `last_seen_at`, reuse the sid
+  - matching `sid` + different nickname → drop the old row (identity
+    switch) and create a fresh session
+  - no cookie / stale cookie → existing create flow, still rejects
+    collisions from other browsers with a 409.
+  Five new integration tests in `tests/integration/SessionTest.php`
+  cover all four branches plus the preserved cross-browser rejection.
+  Pre-existing SPEC-03 bug, surfaced during SPEC-05 manual testing.
+- `ADMIN_PASSWORD_HASH` needs `$$` escaping in any compose-parsed env
+  file — compose re-expands `$`-sequences during interpolation, so an
+  un-escaped bcrypt hash gets mangled (`$a9x…` is seen as a missing
+  variable reference). Documented inline in `.env.example`.
+
 ## [0.4.0] - 2026-04-23
 
 ### Added
